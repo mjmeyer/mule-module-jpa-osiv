@@ -1,0 +1,3 @@
+<!-- BEGIN_INCLUDE(osiv:process) -->
+    <osiv:process logExecutionTime="false"/>
+<!-- END_INCLUDE(osiv:process) -->
