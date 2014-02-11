@@ -28,11 +28,24 @@ A maven project descriptor that describes how to build this module.
 ./LICENSE.md:
 The open source license text for this project.
 
+BUILDING
+=======
+
+Maven is your friend. 
+
+mvn clean package -Ddevkit.studio.package.skip=false
+mvn install
+
+For Mulsoft details on dealing with DevKit modules see: 
+http://www.mulesoft.org/documentation/display/current/Installing+and+Testing+Your+Connector
+
+
+
 TESTING
 =======
 
 This  project also contains test classes that can be run as part of a test
-suite.
+suite...but they barely do anything atm.
 
 ADDITIONAL RESOURCES
 ====================

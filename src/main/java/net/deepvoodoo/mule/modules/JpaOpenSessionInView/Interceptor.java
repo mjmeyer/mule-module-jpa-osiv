@@ -30,8 +30,8 @@ import org.mule.management.stats.ProcessingTime;
  */
 @Module(name="osiv", schemaVersion="0.0.1-SNAPSHOT", friendlyName="jpa-osiv")
 @Category(name = "org.mule.tooling.category.core", description = "Components")
-public class JpaOpenSessionInViewModule {	
-	private static Log logger = LogFactory.getLog(JpaOpenSessionInViewModule.class);
+public class Interceptor {	
+	private static Log logger = LogFactory.getLog(Interceptor.class);
 	
 	@PersistenceContext 
 	EntityManager injectedEntityManager; // might get injected by the Mule-jpa module...but it doesnt seem to relibly inject EMs
@@ -115,7 +115,9 @@ public class JpaOpenSessionInViewModule {
     }
     
     private MuleEvent before(MuleEvent event) throws MuleException {
-    	logger.info("interceptor-before for: " + event.getFlowConstruct().getName());
+    	if (logger.isDebugEnabled()){
+    		logger.debug(String.format("Intercepting flow: %s for JPA EM injection. event_id: %s",event.getFlowConstruct().getName(), event.getId()));
+    	}
     	String emStatus ="";
     	String emfStatus ="";
     	
@@ -137,8 +139,10 @@ public class JpaOpenSessionInViewModule {
 		
 		String logMsg = String.format("%s %s",emStatus, emfStatus);
 		if (flowEm != null){
-			logger.info(logMsg);
-			logger.info(String.format("entityManager avaialble in flowVars['%s']", entityManagerFlowVarName));
+			if (logger.isTraceEnabled()) {
+				logger.trace(logMsg);
+				logger.trace(String.format("entityManager avaialble in flowVars['%s']", entityManagerFlowVarName));
+			}	
 		} else {
 			logger.error(logMsg);
 		}
@@ -147,16 +151,15 @@ public class JpaOpenSessionInViewModule {
 	}
     
     private MuleEvent after(MuleEvent event) throws MuleException {
-		logger.info("interceptor-after");
 		return event;
 	}
     
     private MuleEvent last(MuleEvent event, ProcessingTime time, long startTime, boolean exceptionWasThrown) throws MuleException {
-		logger.info("interceptor-last: wasExceptionThrown: " + exceptionWasThrown);
-		
 		EntityManager flowEm = ((EntityManager)event.getFlowVariable(entityManagerFlowVarName));
-		if (flowEm != null){
-			logger.debug(String.format("closing entityManager & removing flowVars['%s']", entityManagerFlowVarName));
+		if (flowEm != null ){
+			if ( logger.isTraceEnabled()){
+				logger.trace(String.format("closing entityManager & removing flowVars['%s']", entityManagerFlowVarName));
+			}
 			flowEm.close();
 			flowEm = null;
 			event.removeFlowVariable(entityManagerFlowVarName);
@@ -164,8 +167,13 @@ public class JpaOpenSessionInViewModule {
 		
 		if (logExecutionTime && logger.isInfoEnabled()){
 			long executionTime = System.currentTimeMillis() - startTime;
-	        logger.info("TIMER> " + event.getFlowConstruct().getName() + " took " + executionTime
-	                        + "ms to process event [" + event.getId() + "]");
+			
+			String msg = String.format("{\"timer\": {\"execution_ms\": %d, \"flow\": \"%s\", \"event_id\":\"%s\"}}", 
+					executionTime,
+					event.getFlowConstruct().getName(),
+					event.getId()
+					);
+	        logger.info(msg);
 	    }
 		return event;
 
