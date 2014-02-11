@@ -116,7 +116,10 @@ public class Interceptor {
     
     private MuleEvent before(MuleEvent event) throws MuleException {
     	if (logger.isDebugEnabled()){
-    		logger.debug(String.format("Intercepting flow: %s for JPA EM injection. event_id: %s",event.getFlowConstruct().getName(), event.getId()));
+    		logger.debug(String.format("Intercepting flow: %s for JPA EM injection. msg_id: %s  event_id: %s",
+    				event.getFlowConstruct().getName(), 
+    				event.getMessage().getMessageRootId(),
+    				event.getId()));
     	}
     	String emStatus ="";
     	String emfStatus ="";
@@ -168,9 +171,10 @@ public class Interceptor {
 		if (logExecutionTime && logger.isInfoEnabled()){
 			long executionTime = System.currentTimeMillis() - startTime;
 			
-			String msg = String.format("{\"timer\": {\"execution_ms\": %d, \"flow\": \"%s\", \"event_id\":\"%s\"}}", 
+			String msg = String.format("{\"timer\": {\"execution_ms\": %d, \"flow\": \"%s\", \"msg_id\":\"%s\", \"event_id\":\"%s\"}}", 
 					executionTime,
 					event.getFlowConstruct().getName(),
+					event.getMessage().getMessageRootId(),
 					event.getId()
 					);
 	        logger.info(msg);
