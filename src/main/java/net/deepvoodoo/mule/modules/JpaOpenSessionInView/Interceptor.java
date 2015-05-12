@@ -19,13 +19,14 @@ import org.mule.api.annotations.param.Default;
 import org.mule.api.annotations.param.Optional;
 import org.mule.api.callback.SourceCallback;
 import org.mule.management.stats.ProcessingTime;
+import net.deepvoodoo.mule.modules.JpaOpenSessionInView.CompletionCallback;
 
 /**
  * An intercepting mule-module that implements the open-session-in-view pattern 
  * for jpa across components in a mule flow. It manages obtaining, exposing, and
  * closing a jpa EntityManager for the mule processor chain it precedes in a 
  * mule flow.
- *
+ * 
  * @author Matthew Meyer (mjmeyer23@gmail.com)
  */
 @Module(name="osiv", schemaVersion="0.0.1-SNAPSHOT", friendlyName="jpa-osiv")
@@ -35,7 +36,14 @@ public class Interceptor {
 	
 	@PersistenceContext 
 	EntityManager injectedEntityManager; // might get injected by the Mule-jpa module...but it doesnt seem to relibly inject EMs
-
+	
+	/**
+     * Optional CompletionCallback class to call onComplete
+     */
+	 @Configurable
+	 @Optional
+	 private CompletionCallback completionCallback;
+	 
 	/**
      * The invocation variable name you want the EntityManager stored in
      * default: jpa-entitymanager usage: flowVars['jpa-entitymanager']
@@ -61,7 +69,10 @@ public class Interceptor {
     @Configurable
     @Optional
     private EntityManagerFactory entityManagerFactory;
+    
 
+
+    
 	private Boolean logExecutionTime;
 
 	/***
@@ -163,23 +174,41 @@ public class Interceptor {
 			if ( logger.isTraceEnabled()){
 				logger.trace(String.format("closing entityManager & removing flowVars['%s']", entityManagerFlowVarName));
 			}
-			flowEm.close();
+			if (flowEm.getTransaction().isActive()){
+				logger.warn("Entity Manager has active transaction before close. This may leak connection. You should commit or roll back any txns");
+			}
+			if (flowEm.isOpen()){
+				flowEm.close();
+			}
 			flowEm = null;
 			event.removeFlowVariable(entityManagerFlowVarName);
 		}
 		
+		long executionTime = System.currentTimeMillis() - startTime;
+		String msg = String.format("{\"timer\": {\"execution_begin_ts\": %d, \"execution_elapsed_ms\": %d, \"flow\": \"%s\", \"msg_id\":\"%s\", \"event_id\":\"%s\"}}", 
+				startTime,
+				executionTime,
+				event.getFlowConstruct().getName(),
+				event.getMessage().getMessageRootId(),
+				event.getId()
+				);
+		
 		if (logExecutionTime && logger.isInfoEnabled()){
-			long executionTime = System.currentTimeMillis() - startTime;
-			
-			String msg = String.format("{\"timer\": {\"execution_ms\": %d, \"flow\": \"%s\", \"msg_id\":\"%s\", \"event_id\":\"%s\"}}", 
-					executionTime,
-					event.getFlowConstruct().getName(),
-					event.getMessage().getMessageRootId(),
-					event.getId()
-					);
 	        logger.info(msg);
 	    }
+		if (this.completionCallback != null){
+			this.getCompletionCallback().onComplete(msg);
+		}
+		
 		return event;
 
+	}
+
+	public CompletionCallback getCompletionCallback() {
+		return completionCallback;
+	}
+
+	public void setCompletionCallback(CompletionCallback completionCallback) {
+		this.completionCallback = completionCallback;
 	}
 }
